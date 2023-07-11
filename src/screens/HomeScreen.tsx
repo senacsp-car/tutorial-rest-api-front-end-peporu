@@ -1,7 +1,7 @@
 import axios from "axios";
 import { useEffect, useState } from "react";
 
-type Item ={
+type Item = {
     id?:number;
     nome:string;
     descricao:string;
@@ -13,15 +13,14 @@ export default function HomeScreen(){
     const [salvaNome, setSalvaNome] = useState<string>();
     const [salvaDescricao, setSalvaDescricao] = useState<string>();
 
-    const [escolheParaEditar,setEscolheParaEditar] = useState<string>();
-
     const [mostraCriar,setMostraCriar] = useState(false);
     const [mostraEditar,setMostraEditar] = useState(false);
     const [mostraDeletar,setMostraDeletar] = useState(false);
     const [mostraDetalhado,setMostraDetalhado] = useState(false);
-    const [escolheParaDeletar,setEscolheParaDeletar] = useState<string>();
 
-    useEffect(function (){
+    const [idEscolhido,setIdEscolhido] = useState<number>();
+
+    function recarregar(){
         axios.get('http://localhost:4000/api/itens')
         .then(function (response) {
             setItens(response.data);
@@ -29,6 +28,10 @@ export default function HomeScreen(){
         .catch(function (error) {
             alert(error);
         });
+    }
+
+    useEffect(function (){
+        recarregar();
     },[]);
 
     function botaoSalvarClicado() {
@@ -38,54 +41,98 @@ export default function HomeScreen(){
                 descricao:salvaDescricao
             }
             axios.post('http://localhost:4000/api/itens',itemToSave)
-            .then()
+            .then(_response=>{
+                recarregar();
+            })
             .catch();
         }
-        window.location.reload();
+        
     }
 
     function botaoEditarClicado(){
-        if(!axios.get(`http://localhost:4000/api/itens/${escolheParaEditar}`)){
             if((salvaNome !== undefined) && (salvaDescricao !== undefined)){
-                axios.put(`http://localhost:4000/api/itens/${escolheParaEditar}`,{
+                alert(`http://localhost:4000/api/itens/${idEscolhido} - `+salvaNome+' - '+salvaDescricao)
+                axios.put(`http://localhost:4000/api/itens/${idEscolhido}`,{
                     nome:salvaNome,
                     descricao:salvaDescricao
                 })
-                .then()
+                .then(() => {
+                    recarregar();
+                }
+                )
                 .catch();
             }
         }
-        window.location.reload();
-    }
 
     function botaoDeletarClicado(){
-        axios.delete(`http://localhost:4000/api/itens/${escolheParaDeletar}`)
-        window.location.reload();
+        axios.delete(`http://localhost:4000/api/itens/${idEscolhido}`)
+        .then(() =>{recarregar();})
+        .catch()
+        
     }
     function mudaMostraCriar() {
+        escondeOutros();
         setMostraCriar(!mostraCriar);
     }
 
     function mudaMostraEditar(){
+        cancel();
+        escondeOutros();
         setMostraEditar(!mostraEditar);
     }
 
     function mudaMostraDeletar(){
+        cancel();
+        escondeOutros();
         setMostraDeletar(!mostraDeletar);
     }
 
     function mudaMostraDetalhado(){
         setMostraDetalhado(!mostraDetalhado);
     }
+    
+    function escondeOutros(){
+        setMostraCriar(false);
+        setMostraEditar(false);
+        setMostraDeletar(false);
+    }
+    function cancel(){
+        setIdEscolhido(0);
+        setMostraCriar(false);
+        setMostraEditar(false);
+        setMostraDeletar(false);
+    }
 
     return(
         <div>
-            <h1>Home</h1>
-            <ul>
-                {itens.map(function(item){
-                    return <li>{item.id} - {item.nome}</li>
-                })}
-            </ul>
+            {(mostraDetalhado)?(
+                <div>                    
+                    <h1>Home</h1>
+                    <ul>
+                        {itens.map(function(item){
+                            return <li>
+                                {item.id} - {item.nome} - Detalhes: {item.descricao}
+                                {(mostraEditar)&&(<input type="radio" name="itens" onClick={function() {setIdEscolhido(item.id)}} value={item.id}/>)}
+                                {(mostraDeletar)&&(<input type="radio" name="itens" onClick={function() {setIdEscolhido(item.id)}} value={item.id}/>)}
+                            </li>
+                        })}
+                    </ul>
+                </div>
+                ):(
+                <div>
+                    <h1>Home</h1>
+                    <ul>
+                        {itens.map(function(item){
+                            return <li>
+                                {item.id} - {item.nome}
+                                {(mostraEditar)&&(<input type="radio" name="itens" onClick={function() {setIdEscolhido(item.id!)}} value={item.id}/>)}
+                                {(mostraDeletar)&&(<input type="radio" name="itens" onClick={function() {setIdEscolhido(item.id!)}} value={item.id}/>)}
+                            </li>
+                        })}
+                    </ul>
+                </div>
+            )}
+            
             <div className="buttons">
                 <button className="AbreCriar" onClick={mudaMostraCriar}>Criar</button>
                 <button className="AbreEditar" onClick={mudaMostraEditar}>Editar</button>
@@ -101,12 +148,15 @@ export default function HomeScreen(){
                     setSalvaDescricao(e.target.value)
                 }}/>
                 <button onClick={botaoSalvarClicado}>Salvar</button>
+                <button onClick={cancel}>Cancelar</button>
             </div>)}
             {(mostraEditar)&&(
                 <div className="Editar">
-                    <input placeholder="ID do item que deseja editar" onChange={function(e){
-                        setEscolheParaEditar(e.target.value)
-                    }}/>
+                    {(idEscolhido !== undefined) ? (
+                        <span>Item selecionado = {idEscolhido}</span>
+                    ):(
+                        <span>Use os radiobuttons para escolher qual item quer editar</span>
+                    )}
                     <input placeholder="Novo nome" onChange={function(e){
                         setSalvaNome(e.target.value)
                     }}/>
@@ -114,19 +164,20 @@ export default function HomeScreen(){
                         setSalvaDescricao(e.target.value)
                     }}/>
                     <button onClick={botaoEditarClicado}>Editar</button>
+                    <button onClick={cancel}>Cancelar</button>
                 </div>
             )}
             {(mostraDeletar)&&(
                 <div className="Deletar">
-                    <input placeholder="Item que deseja Deletar" onChange={function(e){
-                        setEscolheParaDeletar(e.target.value)
-                    }
-
-                    }/>
+                    {(idEscolhido !== undefined) ? (
+                        <span>Item selecionado = {idEscolhido}</span>
+                    ):(
+                        <span>Use os radiobuttons para escolher qual item quer deletar</span>
+                    )}
                     <button onClick={botaoDeletarClicado}>Deletar</button>
+                    <button onClick={cancel}>Cancelar</button>
                 </div>
             )}
-            
         </div>
     );
 }
